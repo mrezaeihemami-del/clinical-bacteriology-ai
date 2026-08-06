@@ -130,36 +130,12 @@ export default function App() {
   }, [loadCases, loadSelectedCase]);
 
   useEffect(() => {
-    void api
-      .me()
-      .then(({ user: current }) => {
-        setUser(current);
-      })
-      .catch(() => {
-        // Standalone Client Demo Fallback for cloud deployments (Netlify/Vercel)
-        setUser({
-          id: "demo-user-1",
-          email: "microbiologist@clinical-lab.demo",
-          displayName: "Dr. Microbiologist (Demo User)",
-          role: "SUPERVISOR",
-          organisationId: "demo-org-1",
-          organisationName: "Clinical Bacteriology AI Lab",
-        });
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    void loadCases();
+  }, [loadCases]);
 
   useEffect(() => {
-    if (user) {
-      void loadCases();
-    }
-  }, [user, loadCases]);
-
-  useEffect(() => {
-    if (user) {
-      void loadSelectedCase();
-    }
-  }, [user, loadSelectedCase]);
+    void loadSelectedCase();
+  }, [loadSelectedCase]);
 
   useEffect(() => {
     if (user?.role === "ADMIN" && pageError.includes("case:read")) {
