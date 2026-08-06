@@ -16,11 +16,18 @@ import { AuditDialog } from "./components/AuditDialog";
 import { UserManagementDialog } from "./components/UserManagementDialog";
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>({
+    id: "demo-user-1",
+    email: "microbiologist@clinical-lab.demo",
+    displayName: "Dr. Microbiologist (Demo User)",
+    role: "SUPERVISOR",
+    organisationId: "demo-org-1",
+    organisationName: "Clinical Bacteriology AI Lab",
+  });
   const [cases, setCases] = useState<CaseSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>("demo-case-1");
   const [selectedCase, setSelectedCase] = useState<CaseDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [pageError, setPageError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
