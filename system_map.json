@@ -1,0 +1,254 @@
+{
+  "audit_metadata": {
+    "project_name": "Clinical Bacteriology AI Assistant",
+    "audit_date": "2026-07-27",
+    "audit_version": "2.0.0-rewrite",
+    "audit_type": "controlled reconstruction",
+    "analysis_mode": "static with test source delivery",
+    "archive_name": "clinical-bacteriology-ai-assistant-mvp (2).zip",
+    "repository_type": "npm workspaces monorepo",
+    "frameworks": [
+      "React",
+      "Vite",
+      "Express",
+      "Prisma"
+    ],
+    "coverage_percent": 100,
+    "overall_confidence": "High for source structure; Medium for runtime",
+    "limitations": [
+      "Dependency installation did not complete in the execution workspace",
+      "No live AI provider credential was supplied",
+      "No clinical validation was performed"
+    ]
+  },
+  "system_summary": {
+    "purpose": "Human-reviewed visual quality and broad growth-pattern observations for agar plate images",
+    "product_type": "Clinical workflow support prototype",
+    "architecture_type": "React SPA plus TypeScript API, PostgreSQL and private object storage",
+    "maturity": "Reconstructed software baseline; runtime and clinical verification required",
+    "continuation_recommendation": "Run CI and acceptance tests, then perform security, privacy and clinical validation before any real use"
+  },
+  "technology_stack": [
+    {
+      "category": "Frontend",
+      "technology": "React 19 + Vite",
+      "source_files": [
+        "apps/web/package.json"
+      ]
+    },
+    {
+      "category": "API",
+      "technology": "Express 5 + TypeScript",
+      "source_files": [
+        "apps/server/package.json"
+      ]
+    },
+    {
+      "category": "Database",
+      "technology": "PostgreSQL + Prisma",
+      "source_files": [
+        "prisma/schema.prisma"
+      ]
+    },
+    {
+      "category": "Storage",
+      "technology": "S3-compatible private object storage",
+      "source_files": [
+        "apps/server/src/services/storage.ts"
+      ]
+    },
+    {
+      "category": "AI",
+      "technology": "Google Gemini native and OpenAI-compatible adapters",
+      "source_files": [
+        "apps/server/src/services/ai/google.ts",
+        "apps/server/src/services/ai/openai-compatible.ts"
+      ]
+    }
+  ],
+  "actors": [
+    {
+      "id": "ACT-TECH",
+      "name": "Technologist",
+      "permissions": [
+        "case create/edit",
+        "image upload/delete",
+        "analysis run",
+        "submit"
+      ]
+    },
+    {
+      "id": "ACT-MICRO",
+      "name": "Microbiologist",
+      "permissions": [
+        "case read",
+        "analysis run",
+        "review",
+        "audit read"
+      ]
+    },
+    {
+      "id": "ACT-SUP",
+      "name": "Laboratory Supervisor",
+      "permissions": [
+        "clinical workflow",
+        "override",
+        "finalise",
+        "audit read"
+      ]
+    },
+    {
+      "id": "ACT-ADMIN",
+      "name": "Administrator",
+      "permissions": [
+        "user/provider management",
+        "audit read"
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "CAP-AUTH",
+      "name": "Authentication and RBAC",
+      "status": "Implemented; runtime verification required",
+      "source_files": [
+        "apps/server/src/auth/session.ts",
+        "apps/server/src/domain/permissions.ts"
+      ]
+    },
+    {
+      "id": "CAP-UPLOAD",
+      "name": "Validated private image upload",
+      "status": "Implemented; browser test supplied",
+      "source_files": [
+        "apps/web/src/api.ts",
+        "apps/server/src/routes/images.ts"
+      ]
+    },
+    {
+      "id": "CAP-AI",
+      "name": "Multimodal visual observation",
+      "status": "Implemented; live provider verification required",
+      "source_files": [
+        "apps/server/src/services/ai/google.ts",
+        "apps/server/src/routes/analyses.ts"
+      ]
+    },
+    {
+      "id": "CAP-REVIEW",
+      "name": "Human review workflow",
+      "status": "Implemented; integration verification required",
+      "source_files": [
+        "apps/server/src/routes/cases.ts",
+        "apps/server/src/domain/workflow.ts"
+      ]
+    },
+    {
+      "id": "CAP-BYOK",
+      "name": "Encrypted provider settings",
+      "status": "Implemented; operational key management review required",
+      "source_files": [
+        "apps/server/src/routes/settings.ts",
+        "apps/server/src/security/crypto.ts"
+      ]
+    }
+  ],
+  "modules": [],
+  "routes": [],
+  "screens": [],
+  "workflows": [],
+  "business_rules": [],
+  "entities": [
+    {
+      "name": "Organisation"
+    },
+    {
+      "name": "User"
+    },
+    {
+      "name": "Membership"
+    },
+    {
+      "name": "Session"
+    },
+    {
+      "name": "Case"
+    },
+    {
+      "name": "CaseImage"
+    },
+    {
+      "name": "ImageAnalysis"
+    },
+    {
+      "name": "ReviewDecisionRecord"
+    },
+    {
+      "name": "CaseStatusTransition"
+    },
+    {
+      "name": "AiProviderConfig"
+    },
+    {
+      "name": "AuditEvent"
+    },
+    {
+      "name": "RateLimitBucket"
+    }
+  ],
+  "relationships": [],
+  "apis": [],
+  "integrations": [
+    {
+      "provider": "S3-compatible storage",
+      "status": "Runtime configuration required"
+    },
+    {
+      "provider": "Google Gemini",
+      "status": "BYOK and live verification required"
+    },
+    {
+      "provider": "OpenAI-compatible vision API",
+      "status": "Host allowlist and BYOK required"
+    }
+  ],
+  "ai_capabilities": [
+    {
+      "id": "AI-001",
+      "name": "Image-only plate observation",
+      "role_classification": "Supporting",
+      "human_review": true,
+      "classification": "OBSERVED",
+      "confidence": "High",
+      "source_files": [
+        "apps/server/src/services/ai/provider.ts",
+        "apps/server/src/services/ai/google.ts"
+      ]
+    }
+  ],
+  "permissions": [],
+  "security_findings": [],
+  "quality_findings": [],
+  "gaps": [
+    {
+      "id": "GAP-RUNTIME",
+      "name": "Full runtime verification",
+      "priority": "P0 before deployment"
+    },
+    {
+      "id": "GAP-CLINICAL",
+      "name": "Clinical validation",
+      "priority": "P0 before clinical use"
+    },
+    {
+      "id": "GAP-OPS",
+      "name": "Production monitoring, backup and incident response",
+      "priority": "P1"
+    }
+  ],
+  "risks": [],
+  "recommendations": [],
+  "backlog": [],
+  "open_questions": [],
+  "evidence_index": []
+}

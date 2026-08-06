@@ -1,0 +1,39 @@
+{
+    "name":  "clinical-bacteriology-ai-assistant",
+    "version":  "2.0.2",
+    "private":  true,
+    "type":  "module",
+    "workspaces":  [
+                       "apps/*"
+                   ],
+    "engines":  {
+                    "node":  "\u003e=20.11"
+                },
+    "scripts":  {
+                    "dev":  "concurrently -n server,web -c auto \"npm run dev -w @cbai/server\" \"npm run dev -w @cbai/web\"",
+                    "build":  "npm run db:generate \u0026\u0026 npm run build -w @cbai/server \u0026\u0026 npm run build -w @cbai/web",
+                    "typecheck":  "npm run typecheck -w @cbai/server \u0026\u0026 npm run typecheck -w @cbai/web",
+                    "test":  "npm run test -w @cbai/server \u0026\u0026 npm run test -w @cbai/web",
+                    "test:integration":  "npm run test:integration -w @cbai/server",
+                    "db:generate":  "prisma generate --schema prisma/schema.prisma",
+                    "db:migrate:dev":  "prisma migrate dev --schema prisma/schema.prisma",
+                    "db:migrate:deploy":  "prisma migrate deploy --schema prisma/schema.prisma",
+                    "db:seed":  "tsx prisma/seed.ts",
+                    "key:generate":  "node scripts/generate-master-key.mjs",
+                    "format:check":  "prettier --check .",
+                    "format":  "prettier --write .",
+                    "test:e2e":  "playwright test"
+                },
+    "devDependencies":  {
+                            "@types/node":  "22.15.0",
+                            "concurrently":  "9.1.2",
+                            "prettier":  "3.5.3",
+                            "prisma":  "6.19.2",
+                            "tsx":  "4.19.4",
+                            "typescript":  "5.8.3",
+                            "@playwright/test":  "1.61.1"
+                        },
+    "prisma":  {
+                   "seed":  "tsx prisma/seed.ts"
+               }
+}

@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cbai_test
+          POSTGRES_USER: cbai
+          POSTGRES_PASSWORD: cbai_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cbai -d cbai_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://cbai:cbai_test_password@localhost:5432/cbai_test?schema=public
+      AI_CONFIG_MASTER_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SESSION_COOKIE_NAME: cbai_session
+      SESSION_TTL_HOURS: 12
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: cbai-private
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: true
+      WEB_ORIGIN: http://localhost:5173
+      TRUST_PROXY: false
+      MAX_UPLOAD_BYTES: 10485760
+      MAX_IMAGE_PIXELS: 30000000
+      ANALYSIS_TIMEOUT_MS: 45000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start MinIO
+        run: |
+          docker run -d --name cbai-minio             -p 9000:9000             -e MINIO_ROOT_USER=minioadmin             -e MINIO_ROOT_PASSWORD=minioadmin             minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          for i in {1..30}; do
+            curl -fsS http://localhost:9000/minio/health/live && exit 0
+            sleep 2
+          done
+          docker logs cbai-minio
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run db:migrate:deploy
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run build
+      - run: npm run db:seed
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

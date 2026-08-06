@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TECHNICIAN
+  MICROBIOLOGIST
+  SUPERVISOR
+  ADMIN
+}
+
+enum CaseStatus {
+  DRAFT
+  IMAGE_UPLOADED
+  QC_COMPLETED
+  TRIAGE_COMPLETED
+  SUBMITTED_FOR_REVIEW
+  APPROVED
+  REJECTED
+  FINALISED
+}
+
+enum SpecimenType {
+  URINE
+  STERILE_SITE
+  SPUTUM
+  THROAT
+  GENITAL
+  OTHER
+}
+
+enum AnalysisStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  NOT_RUN
+}
+
+enum ReviewDecision {
+  APPROVED
+  REJECTED
+  OVERRIDDEN
+}
+
+enum AiProvider {
+  GOOGLE_NATIVE
+  OPENAI_COMPATIBLE
+}
+
+model Organisation {
+  id                String             @id @default(cuid())
+  name              String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  memberships       Membership[]
+  cases             Case[]
+  aiProviderConfigs AiProviderConfig[]
+  auditEvents       AuditEvent[]
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  displayName  String
+  passwordHash String
+  disabledAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+  sessions     Session[]
+  createdCases Case[]       @relation("CaseCreator")
+  uploadedImages CaseImage[] @relation("ImageUploader")
+  reviewDecisions ReviewDecisionRecord[]
+  auditEvents  AuditEvent[] @relation("AuditActor")
+  transitions CaseStatusTransition[] @relation("TransitionActor")
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String       @unique
+  organisationId String
+  role           Role
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organisationId])
+  @@index([organisationId, role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model Case {
+  id                String                 @id @default(cuid())
+  organisationId    String
+  caseCode          String
+  specimenType      SpecimenType
+  collectionDate    DateTime
+  cultureMedia      String
+  incubationHours   Int
+  gramStainAvailable Boolean               @default(false)
+  gramStainResult   String?
+  microscopyAvailable Boolean             @default(false)
+  microscopyResult String?
+  notes             String?
+  status            CaseStatus             @default(DRAFT)
+  createdById       String
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  archivedAt        DateTime?
+  organisation      Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  createdBy         User                   @relation("CaseCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  images            CaseImage[]
+  reviews           ReviewDecisionRecord[]
+  transitions       CaseStatusTransition[]
+  auditEvents       AuditEvent[]
+
+  @@unique([organisationId, caseCode])
+  @@index([organisationId, status, createdAt])
+}
+
+model CaseImage {
+  id                 String          @id @default(cuid())
+  caseId             String
+  storageKey         String          @unique
+  originalFileName   String
+  detectedMimeType   String
+  sizeBytes          Int
+  width              Int
+  height             Int
+  sha256             String
+  uploadedById       String
+  uploadedAt         DateTime        @default(now())
+  deletedAt          DateTime?
+  analysisLockToken  String?
+  analysisLockExpiresAt DateTime?
+  case               Case            @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  uploadedBy         User            @relation("ImageUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  analyses           ImageAnalysis[]
+
+  @@unique([caseId, sha256])
+  @@index([caseId, uploadedAt])
+  @@index([analysisLockExpiresAt])
+}
+
+model ImageAnalysis {
+  id                    String         @id @default(cuid())
+  imageId               String
+  status                AnalysisStatus
+  provider              AiProvider?
+  model                 String?
+  promptVersion         String
+  schemaVersion         String
+  inputImageSha256      String
+  imageQuality          String?
+  qualityIssues         Json?
+  growthPattern         String?
+  observations          Json?
+  confidence            Float?
+  requiresHumanReview   Boolean        @default(true)
+  limitations           Json?
+  failureReason         String?
+  rawResponseRedacted   Json?
+  startedAt             DateTime       @default(now())
+  completedAt           DateTime?
+  image                 CaseImage      @relation(fields: [imageId], references: [id], onDelete: Restrict)
+  reviews               ReviewDecisionRecord[]
+
+  @@index([imageId, startedAt])
+}
+
+model ReviewDecisionRecord {
+  id             String         @id @default(cuid())
+  caseId         String
+  reviewerId     String
+  decision       ReviewDecision
+  comments       String?
+  overrideReason String?
+  analysisId     String
+  createdAt      DateTime       @default(now())
+  case           Case           @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  reviewer       User           @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  analysis       ImageAnalysis  @relation(fields: [analysisId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, createdAt])
+}
+
+model CaseStatusTransition {
+  id          String     @id @default(cuid())
+  caseId      String
+  fromStatus  CaseStatus
+  toStatus    CaseStatus
+  actorId     String
+  reason      String?
+  createdAt   DateTime   @default(now())
+  case        Case       @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  actor       User       @relation("TransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, createdAt])
+}
+
+model AiProviderConfig {
+  id                     String       @id @default(cuid())
+  organisationId         String
+  provider               AiProvider
+  baseUrl                 String
+  model                   String
+  apiKeyCiphertext        String?
+  apiKeyIv                String?
+  apiKeyAuthTag           String?
+  apiKeyLastFour          String?
+  enabled                 Boolean      @default(false)
+  visionEnabled           Boolean      @default(true)
+  timeoutMs               Int          @default(45000)
+  maxImageBytes           Int          @default(10485760)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  organisation            Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, provider])
+}
+
+model AuditEvent {
+  id             String        @id @default(cuid())
+  organisationId String
+  actorId         String?
+  caseId          String?
+  action          String
+  entityType      String
+  entityId        String?
+  outcome         String
+  requestId       String
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  actor           User?         @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  case            Case?         @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId, createdAt])
+  @@index([caseId, createdAt])
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}

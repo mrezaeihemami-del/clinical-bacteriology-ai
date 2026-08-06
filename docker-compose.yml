@@ -1,0 +1,118 @@
+name: cbai-mvp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cbai
+      POSTGRES_USER: cbai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cbai_local_password}
+    volumes:
+      - cbai_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cbai -d cbai"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - cbai_internal
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-cbai_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-cbai_minio_password}
+    volumes:
+      - cbai_minio:/data
+    networks:
+      - cbai_internal
+
+  create-bucket:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    restart: "no"
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-cbai_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-cbai_minio_password}
+      S3_BUCKET: ${S3_BUCKET:-cbai-private}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          sleep 2
+        done
+        mc mb --ignore-existing "local/$$S3_BUCKET"
+        mc anonymous set none "local/$$S3_BUCKET"
+    networks:
+      - cbai_internal
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      create-bucket:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      WEB_ORIGIN: http://localhost:${APP_PORT:-8080}
+      TRUST_PROXY: "false"
+
+      DATABASE_URL: postgresql://cbai:${POSTGRES_PASSWORD:-cbai_local_password}@postgres:5432/cbai?schema=public
+      AI_CONFIG_MASTER_KEY: ${AI_CONFIG_MASTER_KEY}
+
+      SESSION_COOKIE_NAME: cbai_session
+      SESSION_TTL_HOURS: 12
+
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:-cbai-private}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-cbai_minio}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-cbai_minio_password}
+      S3_FORCE_PATH_STYLE: "true"
+      SIGNED_URL_TTL_SECONDS: 300
+
+      MAX_UPLOAD_BYTES: 10485760
+      MAX_IMAGE_PIXELS: 30000000
+      ANALYSIS_TIMEOUT_MS: 45000
+      CUSTOM_AI_ALLOWED_HOSTS: ""
+      ALLOW_PRIVATE_AI_HOSTS: "false"
+
+      # Optional fallback. Recommended: add the key after login in AI Provider Settings.
+      GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY:-}
+      GOOGLE_GEMINI_MODEL: ${GOOGLE_GEMINI_MODEL:-gemini-3.6-flash}
+
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - cbai_internal
+
+volumes:
+  cbai_postgres:
+  cbai_minio:
+
+networks:
+  cbai_internal:
+    driver: bridge
