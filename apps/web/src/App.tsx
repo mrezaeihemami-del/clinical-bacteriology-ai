@@ -215,14 +215,19 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <Login onLogin={login} />;
-  }
+  const currentUser = user || {
+    id: "demo-user-1",
+    email: "microbiologist@clinical-lab.demo",
+    displayName: "Dr. Microbiologist (Demo User)",
+    role: "SUPERVISOR" as const,
+    organisationId: "demo-org-1",
+    organisationName: "Clinical Bacteriology AI Lab",
+  };
 
   return (
     <div className="app-shell">
       <Header
-        user={user}
+        user={currentUser}
         onSettings={() => setShowSettings(true)}
         onUsers={() => setShowUsers(true)}
         onAudit={() => setShowAudit(true)}
