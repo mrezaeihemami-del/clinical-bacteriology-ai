@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { GoogleGenAI } from "@google/genai";
 import { FlaskConical, Upload, Key, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 
 export function StandaloneDemoApp() {
@@ -28,7 +27,8 @@ export function StandaloneDemoApp() {
   };
 
   const runDirectAiAnalysis = async () => {
-    if (!apiKey.trim()) {
+    const cleanKey = apiKey.trim();
+    if (!cleanKey) {
       setError("Please enter your Google Gemini API Key first.");
       return;
     }
@@ -53,10 +53,9 @@ export function StandaloneDemoApp() {
       reader.readAsDataURL(selectedFile);
       const base64Data = await base64Promise;
 
-      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
-      const prompt = `You are acting as an expert Senior Clinical Microbiologist.
+      const promptText = `You are acting as an expert Senior Clinical Microbiologist.
 Analyze this agar culture plate image. Specimen Type: ${specimenType}, Media: ${mediaType}.
-Provide detailed microbiological analysis in JSON format with the following keys:
+Provide detailed microbiological analysis in valid JSON format with the following keys:
 - imageQuality: "adequate", "borderline", or "inadequate"
 - growthPattern: string describing overall growth
 - gramStainHypothesis: "gram_negative_suspected", "gram_positive_suspected", or "mixed_flora_suspected" (Explain based on media like EMB/MacConkey and 3D morphology to bypass manual staining)
@@ -65,26 +64,42 @@ Provide detailed microbiological analysis in JSON format with the following keys
 - recommendedAction: string suggesting next diagnostic steps
 - confidence: number between 0 and 1`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: [
-          {
-            inlineData: {
-              mimeType: selectedFile.type || "image/jpeg",
-              data: base64Data,
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: promptText },
+                  {
+                    inline_data: {
+                      mime_type: selectedFile.type || "image/jpeg",
+                      data: base64Data,
+                    },
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              response_mime_type: "application/json",
+              temperature: 0.1,
             },
-          },
-          { text: prompt },
-        ],
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.1,
-        },
-      });
+          }),
+        }
+      );
 
-      const jsonText = response.text?.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-      if (!jsonText) throw new Error("Received empty response from AI model.");
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error?.message || `Gemini API Error: ${response.status}`);
+      }
 
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error("Received empty analysis text from Gemini.");
+
+      const jsonText = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
       const parsed = JSON.parse(jsonText);
       setAnalysisResult(parsed);
     } catch (err: any) {
